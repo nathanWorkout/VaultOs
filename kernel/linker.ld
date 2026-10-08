@@ -1,0 +1,61 @@
+ENTRY(_start)
+KERNEL_VIRT_BASE = 0xFFFFFFFF80000000;
+KERNEL_PHYS_BASE = 0x00100000; /* 0x00100000 beacause before that we have BIOS, memory areas legacy... */
+
+SECTIONS
+{
+  /* . = current address */
+  . = KERNEL_VIRT_BASE + KERNEL_PHYS_BASE;
+  kernel_virt_start = .;
+  kernel_phys_start = . - KERNEL_VIRT_BASE;
+
+  _text_start = .;
+  .text ALIGN(4096) : /* for paging */
+  {
+    *(.text)
+    *(.text.*)
+  }
+
+  . = ALIGN(4096);
+  _text_end = .;
+
+  _rodata_start = .;
+  .rodata ALIGN(4096) :
+  {
+    *(.rodata)
+    *(.rodata.*)
+  }
+
+  . = ALIGN(4096);
+  _rodata_end = .;
+
+  _data_start = .;
+  .data ALIGN(4096) :
+  {
+    *(.data)
+    *(.data.*)
+  }
+
+  . = ALIGN(4096);
+  _data_end = .;
+
+  tss ALIGN(4096) :
+  {
+    *(.tss)
+    . = ALIGN(4096);
+  }
+
+  _bss_start = .;
+  .bss ALIGN(4096) :
+  {
+    *(.bss)
+    *(.bss.*)
+    *(COMMON)
+  }
+  
+  . = ALIGN(4096);
+  _bss_end = .;
+
+  kernel_virt_end = .;
+  kernel_phys_end = . - KERNEL_VIRT_BASE;
+}
