@@ -6,7 +6,7 @@ Even replacing the body of `fb_get_canvas` with `return null` caused a triple fa
 
 Zig/LLVM even in debug mode uses SSE instructions to copy structs.
 Limine resets CR4 before jumping to the kernel, so SSE was disabled.
-The CPU raised `#UD` on the first XMM instruction → triple fault.
+The CPU raised `#UD` on the first XMM instruction -> triple fault.
 
 ### Fix
 
