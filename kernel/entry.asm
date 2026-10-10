@@ -16,13 +16,14 @@ section .text
 _start:
   ; enable SSE
   mov rax, cr0
-  and ax, 0xFFFB
-  or ax, 0x2
-
+  and ax, 0xFFFB ; disable FPU emulation
+  or ax, 0x2     ; active monitor coprocessor
   mov cr0, rax
+
+  ; cr4 : activates CPU extensions
   mov rax, cr4
-  or rax, (1 << 9)
-  or rax, (1 << 10)
+  or rax, (1 << 9)  ; allows FXSAVE/FXRSTOR and SSE
+  or rax, (1 << 10) ; Enables #XF exceptions for SSE
   mov cr4, rax
 
   ; gdt segments
