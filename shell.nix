@@ -8,6 +8,7 @@ pkgs.mkShell {
     mtools
     qemu
     OVMF
+    pkgsCross.x86_64-embedded.buildPackages.binutils
   ];
 
   shellHook = ''

@@ -29,7 +29,7 @@ $(BUILD)/main.o: $(KERNEL)/kmain.zig
 	    -femit-bin=$@
 
 $(BUILD)/kernel.elf: $(ASM_OBJS) $(BUILD)/main.o $(KERNEL)/linker.ld
-	$(ZIG) ld.lld -m elf_x86_64 -T $(KERNEL)/linker.ld -nostdlib \
+	x86_64-elf-ld -m elf_x86_64 -T $(KERNEL)/linker.ld -nostdlib \
 	    -o $@ $(ASM_OBJS) $(BUILD)/main.o
 
 img: $(BUILD)/kernel.elf

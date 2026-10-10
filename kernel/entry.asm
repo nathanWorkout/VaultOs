@@ -14,6 +14,17 @@ kernel_stack_top:
 section .text
 
 _start:
+  ; enable SSE
+  mov rax, cr0
+  and ax, 0xFFFB
+  or ax, 0x2
+
+  mov cr0, rax
+  mov rax, cr4
+  or rax, (1 << 9)
+  or rax, (1 << 10)
+  mov cr4, rax
+
   ; gdt segments
   mov ax, 0x10
   mov ss, ax

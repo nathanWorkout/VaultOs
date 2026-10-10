@@ -1,5 +1,11 @@
 pub const LIMINE_COMMON_MAGIC = [2]u64{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b };
 
+// base revision
+pub const LIMINE_BASE_REVISION = extern struct {
+    id: [2]u64 = .{ 0xf9562b2d5c95a6c8, 0x6a7b384944536bdc },
+    revision: u64 = 3,
+};
+
 // Framebuffer
 pub const LIMINE_FRAMEBUFFER_RGB: u8 = 1;
 
@@ -43,6 +49,11 @@ pub const limine_framebuffer_response = extern struct {
     framebuffers: [*]*limine_framebuffer,
 };
 
+pub const LIMINE_REQUESTS_START_MARKER = [4]u64{
+    0xf6b8f4b39de7d1ae, 0xfab91a6940fcb9cf,
+    0x785c6ed015d3e316, 0x181e920a7852b9d9,
+};
+
 pub const LIMINE_FRAMEBUFFER_REQUEST = extern struct {
     id: [4]u64 = .{
         LIMINE_COMMON_MAGIC[0],
@@ -52,4 +63,20 @@ pub const LIMINE_FRAMEBUFFER_REQUEST = extern struct {
     },
     revision: u64 = 0,
     response: ?*limine_framebuffer_response = null,
+};
+
+pub const LIMINE_REQUESTS_END_MARKER = [2]u64{
+    0xadc0e0531bb10d03, 0x9572709f31764c62,
+};
+
+pub const LIMINE_STACK_SIZE_REQUEST = extern struct {
+    id: [4]u64 = .{
+        LIMINE_COMMON_MAGIC[0],
+        LIMINE_COMMON_MAGIC[1],
+        0x224ef0460a8e8926,
+        0xe1cb0fc25f46ea3d,
+    },
+    revision: u64 = 0,
+    response: ?*anyopaque = null,
+    stack_size: u64 = 0x10000, // 64 KiB
 };

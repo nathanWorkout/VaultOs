@@ -1,7 +1,5 @@
-// get the canvas from framebuffer
-
 const limine = @import("../limine.zig");
-pub export var fb_request: limine.LIMINE_FRAMEBUFFER_REQUEST = .{};
+const requests = @import("../requests.zig");
 
 pub const Canvas = struct {
     address: *anyopaque,
@@ -10,9 +8,10 @@ pub const Canvas = struct {
     pitch: u64,
 };
 
-pub fn fb_get_canvas() Canvas {
-    const fb = fb_request.response.?.framebuffers[0];
-    return Canvas{
+pub fn fb_get_canvas() ?Canvas {
+    const resp = requests.fb_request.response orelse return null;
+    const fb = resp.framebuffers[0];
+    return .{
         .address = fb.address,
         .width = fb.width,
         .height = fb.height,
