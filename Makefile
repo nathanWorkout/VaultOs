@@ -7,8 +7,8 @@ LIMINE    ?= /usr/share/limine
 OVMF_CODE ?= /usr/share/edk2/x64/OVMF_CODE.fd
 OVMF_VARS ?= OVMF_VARS.fd
 
-ASM_SRCS = $(KERNEL)/entry.asm
-ASM_OBJS = $(BUILD)/entry.o
+ASM_SRCS = $(KERNEL)/entry.asm $(KERNEL)/io/io.asm
+ASM_OBJS = $(BUILD)/entry.o $(BUILD)/io.o
 
 all: $(BUILD)/kernel.elf
 
@@ -16,15 +16,21 @@ $(BUILD)/entry.o: $(KERNEL)/entry.asm
 	mkdir -p $(BUILD)
 	$(AS) -f elf64 $< -o $@
 
-$(BUILD)/kernel.elf: $(BUILD)/entry.o
+$(BUILD)/io.o: $(KERNEL)/io/io.asm
 	mkdir -p $(BUILD)
-	$(ZIG) build-obj $(KERNEL)/kmain.zig \
+	$(AS) -f elf64 $< -o $@
+
+$(BUILD)/main.o: $(KERNEL)/kmain.zig
+	mkdir -p $(BUILD)
+	$(ZIG) build-obj $< \
 	    -target x86_64-freestanding-none \
 	    -O Debug \
 	    -mno-red-zone \
-	    -femit-bin=$(BUILD)/main.o
-	zig ld.lld -m elf_x86_64 -T kernel/linker.ld -nostdlib \
-    -o $@ $(BUILD)/entry.o $(BUILD)/main.o
+	    -femit-bin=$@
+
+$(BUILD)/kernel.elf: $(ASM_OBJS) $(BUILD)/main.o $(KERNEL)/linker.ld
+	$(ZIG) ld.lld -m elf_x86_64 -T $(KERNEL)/linker.ld -nostdlib \
+	    -o $@ $(ASM_OBJS) $(BUILD)/main.o
 
 img: $(BUILD)/kernel.elf
 	dd if=/dev/zero of=$(IMG) bs=512 count=524288
