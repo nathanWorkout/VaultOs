@@ -1,0 +1,1 @@
+## Dans pmm.c gere l'allocaiton dynamique de la ram (a la place de 8 go max detecter toute la ram de la machine)

@@ -4,6 +4,22 @@ AS  = nasm
 LD  = x86_64-elf-ld
 LDFLAGS = -m elf_x86_64 -T linker.ld -nostdlib
 
+# Dossiers
+KERNEL  = kernel
+GEN     = build
+OBJ     = $(GEN)/obj
+BIN     = $(GEN)/bin
+IMG_DIR = $(GEN)/img
+ISO_DIR = $(GEN)/iso
+ISO_ROOT = $(ISO_DIR)/root
+
+# Fichiers générés
+KERNEL_ELF = $(BIN)/kernel.elf
+IMG        = $(IMG_DIR)/boot.img
+ISO        = $(ISO_DIR)/VaultOS.iso
+
+LIMINE ?= /usr/share/limine
+
 # Flags compilateur
 CFLAGS = \
     -m64                  \
@@ -36,16 +52,13 @@ CFLAGS = \
     -I kernel/Graphic/ui/wallpaper \
     -I kernel/VaultFs/
 
-WALLPAPER     = kernel/Graphic/ui/wallpaper/wallpaper.png
-WALLPAPER_OBJ = $(BUILD)/wallpaper.o
-
 ASFLAGS = -f elf64
 
-BUILD  = build
-KERNEL = kernel
-IMG    = boot.img
-LIMINE ?= /usr/share/limine
+# Wallpaper (embarqué via objcopy)
+WALLPAPER     = kernel/Graphic/ui/wallpaper/wallpaper.png
+WALLPAPER_OBJ = $(OBJ)/wallpaper.o
 
+# Sources
 C_SRCS = \
     $(wildcard $(KERNEL)/*.c)                           \
     $(wildcard $(KERNEL)/idt/*.c)                       \
@@ -72,70 +85,40 @@ ASM_SRCS = \
     $(wildcard $(KERNEL)/idt/*.asm)   \
     $(wildcard $(KERNEL)/proc/*.asm)
 
-C_OBJS   = $(patsubst %.c,   $(BUILD)/%.o, $(notdir $(C_SRCS)))
-ASM_OBJS = $(patsubst %.asm, $(BUILD)/%.o, $(notdir $(ASM_SRCS)))
+# Objets : on garde l'arborescence de kernel/ dans boot/obj/
+C_OBJS   = $(patsubst $(KERNEL)/%.c,   $(OBJ)/%.o, $(C_SRCS))
+ASM_OBJS = $(patsubst $(KERNEL)/%.asm, $(OBJ)/%.o, $(ASM_SRCS))
+ENTRY_OBJ = $(OBJ)/entry.o
 
-all: $(BUILD)/kernel.elf
+# ------------------------------------------------------------
+#  Kernel
+# ------------------------------------------------------------
+all: $(KERNEL_ELF)
 
-$(BUILD)/kernel.elf: $(BUILD)/entry.o $(ASM_OBJS) $(C_OBJS) $(WALLPAPER_OBJ) linker.ld
-	$(LD) $(LDFLAGS) -o $@ $(BUILD)/entry.o $(ASM_OBJS) $(C_OBJS) $(WALLPAPER_OBJ)
-	@echo "[OK] kernel.elf généré"
+$(KERNEL_ELF): $(ENTRY_OBJ) $(ASM_OBJS) $(C_OBJS) $(WALLPAPER_OBJ) linker.ld
+	@mkdir -p $(@D)
+	$(LD) $(LDFLAGS) -o $@ $(ENTRY_OBJ) $(ASM_OBJS) $(C_OBJS) $(WALLPAPER_OBJ)
+	@echo "[OK] kernel.elf généré -> $@"
 
-$(BUILD)/entry.o: $(KERNEL)/entry.asm
-	$(AS) $(ASFLAGS) $< -o $@
-
-$(BUILD)/%.o: $(KERNEL)/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/idt/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/tty/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/serial/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/lib/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/pic/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/pit/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/memory/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/drivers/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/drivers/keyboard/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/drivers/mouse/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/shell/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/proc/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/Graphic/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/Graphic/core/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/Graphic/renderer/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/Graphic/ui/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/Graphic/ui/wallpaper/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/%.o: $(KERNEL)/VaultFs/%.c
+$(OBJ)/%.o: $(KERNEL)/%.c
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/%.o: $(KERNEL)/%.asm
-	$(AS) $(ASFLAGS) $< -o $@
-$(BUILD)/%.o: $(KERNEL)/idt/%.asm
-	$(AS) $(ASFLAGS) $< -o $@
-$(BUILD)/%.o: $(KERNEL)/proc/%.asm
+$(OBJ)/%.o: $(KERNEL)/%.asm
+	@mkdir -p $(@D)
 	$(AS) $(ASFLAGS) $< -o $@
 
 $(WALLPAPER_OBJ): $(WALLPAPER)
+	@mkdir -p $(@D)
 	objcopy -O elf64-x86-64 -B i386 -I binary $< $@
 
+# ------------------------------------------------------------
+#  Images disque (boot/img/boot.img)
+# ------------------------------------------------------------
 img: img-uefi img-bios
 
-img-uefi: $(BUILD)/kernel.elf
+img-uefi: $(KERNEL_ELF)
+	@mkdir -p $(IMG_DIR)
 	dd if=/dev/zero of=$(IMG) bs=512 count=524288
 	printf '\x00\x00\x02\x00\xef\xfe\xff\xff\x00\x08\x00\x00\x00\xf8\x07\x00' | dd of=$(IMG) bs=1 seek=446 conv=notrunc
 	printf '\x55\xaa' | dd of=$(IMG) bs=1 seek=510 conv=notrunc
@@ -144,24 +127,26 @@ img-uefi: $(BUILD)/kernel.elf
 	mmd -i $(IMG)@@1M ::/EFI/BOOT
 	mmd -i $(IMG)@@1M ::/boot
 	mcopy -i $(IMG)@@1M $(LIMINE)/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
-	mcopy -i $(IMG)@@1M $(BUILD)/kernel.elf ::/boot/kernel.elf
+	mcopy -i $(IMG)@@1M $(KERNEL_ELF) ::/boot/kernel.elf
 	mcopy -i $(IMG)@@1M limine.conf ::/boot/limine.conf
 	limine enroll-config $(IMG) $(shell b2sum limine.conf | awk '{print $$1}' | tr -d '\n')
-	@echo "[OK] Image UEFI générée"
+	@echo "[OK] Image UEFI générée -> $(IMG)"
 
-img-bios: $(BUILD)/kernel.elf
+img-bios: $(KERNEL_ELF)
+	@mkdir -p $(IMG_DIR)
 	dd if=/dev/zero of=$(IMG) bs=512 count=524288
 	printf '\x00\x00\x02\x00\xef\xfe\xff\xff\x00\x08\x00\x00\x00\xf8\x07\x00' | dd of=$(IMG) bs=1 seek=446 conv=notrunc
 	printf '\x55\xaa' | dd of=$(IMG) bs=1 seek=510 conv=notrunc
 	mformat -i $(IMG)@@1M -F -v VAULTOS ::
 	mmd -i $(IMG)@@1M ::/boot
 	mcopy -i $(IMG)@@1M $(LIMINE)/limine-bios.sys ::/boot/limine-bios.sys
-	mcopy -i $(IMG)@@1M $(BUILD)/kernel.elf ::/boot/kernel.elf
+	mcopy -i $(IMG)@@1M $(KERNEL_ELF) ::/boot/kernel.elf
 	mcopy -i $(IMG)@@1M limine.conf ::/boot/limine.conf
 	limine bios-install $(IMG)
-	@echo "[OK] Image BIOS générée"
+	@echo "[OK] Image BIOS générée -> $(IMG)"
 
-img-dual: $(BUILD)/kernel.elf
+img-dual: $(KERNEL_ELF)
+	@mkdir -p $(IMG_DIR)
 	dd if=/dev/zero of=$(IMG) bs=512 count=524288
 	printf '\x00\x00\x02\x00\xef\xfe\xff\xff\x00\x08\x00\x00\x00\xf8\x07\x00' | dd of=$(IMG) bs=1 seek=446 conv=notrunc
 	printf '\x55\xaa' | dd of=$(IMG) bs=1 seek=510 conv=notrunc
@@ -171,13 +156,49 @@ img-dual: $(BUILD)/kernel.elf
 	mmd -i $(IMG)@@1M ::/boot
 	mcopy -i $(IMG)@@1M $(LIMINE)/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
 	mcopy -i $(IMG)@@1M $(LIMINE)/limine-bios.sys ::/boot/limine-bios.sys
-	mcopy -i $(IMG)@@1M $(BUILD)/kernel.elf ::/boot/kernel.elf
+	mcopy -i $(IMG)@@1M $(KERNEL_ELF) ::/boot/kernel.elf
 	mcopy -i $(IMG)@@1M limine.conf ::/boot/limine.conf
 	limine bios-install $(IMG)
 	limine enroll-config $(IMG) $(shell b2sum limine.conf | awk '{print $$1}' | tr -d '\n')
-	@echo "[OK] Image dual BIOS+UEFI générée"
+	@echo "[OK] Image dual BIOS+UEFI générée -> $(IMG)"
 
-usb: $(IMG)
+# ------------------------------------------------------------
+#  ISO (boot/iso/VaultOS.iso) - BIOS + UEFI
+#  Nécessite : xorriso, limine
+# ------------------------------------------------------------
+iso: $(ISO)
+
+$(ISO): $(KERNEL_ELF) limine.conf
+	@rm -rf $(ISO_ROOT)
+	@mkdir -p $(ISO_ROOT)/boot $(ISO_ROOT)/EFI/BOOT
+	cp $(KERNEL_ELF)                    $(ISO_ROOT)/boot/kernel.elf
+	cp limine.conf                      $(ISO_ROOT)/boot/limine.conf
+	cp $(LIMINE)/limine-bios.sys        $(ISO_ROOT)/boot/
+	cp $(LIMINE)/limine-bios-cd.bin     $(ISO_ROOT)/boot/
+	cp $(LIMINE)/BOOTX64.EFI            $(ISO_ROOT)/EFI/BOOT/
+	@# les fichiers du store Nix sont en lecture seule : on les rend modifiables
+	chmod -R u+w $(ISO_ROOT)
+	limine enroll-config $(ISO_ROOT)/EFI/BOOT/BOOTX64.EFI $(shell b2sum limine.conf | awk '{print $$1}' | tr -d '\n')
+	@# image FAT El Torito pour le boot UEFI (limine-uefi-cd.bin n'existe plus dans les Limine récents)
+	dd if=/dev/zero of=$(ISO_ROOT)/boot/efiboot.img bs=1M count=8
+	mformat -i $(ISO_ROOT)/boot/efiboot.img ::
+	mmd -i $(ISO_ROOT)/boot/efiboot.img ::/EFI
+	mmd -i $(ISO_ROOT)/boot/efiboot.img ::/EFI/BOOT
+	mcopy -i $(ISO_ROOT)/boot/efiboot.img $(ISO_ROOT)/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
+	xorriso -as mkisofs -R -r -J \
+	    -b boot/limine-bios-cd.bin \
+	    -no-emul-boot -boot-load-size 4 -boot-info-table \
+	    -hfsplus -apm-block-size 2048 \
+	    --efi-boot boot/efiboot.img \
+	    -efi-boot-part --efi-boot-image --protective-msdos-label \
+	    $(ISO_ROOT) -o $(ISO)
+	limine bios-install $(ISO)
+	@echo "[OK] ISO générée -> $(ISO)"
+
+# ------------------------------------------------------------
+#  Exécution / outils
+# ------------------------------------------------------------
+usb: img-dual
 	@echo "[!] Écriture de $(IMG) sur /dev/sda dans 3s... (Ctrl+C pour annuler)"
 	@sleep 3
 	sudo dd if=$(IMG) of=/dev/sda bs=4M status=progress
@@ -203,7 +224,16 @@ run-bios: img-dual
 	    -m 256M \
 	    -display sdl
 
-debug: $(IMG)
+run-iso: iso
+	qemu-system-x86_64 \
+	    -drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
+	    -drive if=pflash,format=raw,file=$(OVMF_VARS) \
+	    -cdrom $(ISO) \
+	    -serial stdio \
+	    -m 256M \
+	    -display sdl
+
+debug: img-dual
 	qemu-system-x86_64 \
 	    -drive format=raw,file=$(IMG),index=0,media=disk \
 	    -serial stdio \
@@ -211,8 +241,8 @@ debug: $(IMG)
 	    -s -S -display gtk
 
 clean:
-	rm -f $(BUILD)/*.o $(BUILD)/*.elf $(IMG)
+	rm -rf $(OBJ) $(BIN) $(IMG_DIR) $(ISO_DIR)
 
-.PHONY: all img img-uefi img-bios img-dual run run-bios debug clean usb full
+.PHONY: all img img-uefi img-bios img-dual iso run run-bios run-iso debug clean usb full
 
 full: clean img run

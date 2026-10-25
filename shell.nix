@@ -22,6 +22,7 @@ pkgs.mkShell {
 
     # Utilitaires
     b2sum
+    xorriso
   ];
 
   shellHook = ''

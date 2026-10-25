@@ -52,7 +52,6 @@ void kmain(void) {
     pic_init();
     pit_init(1000);
     tss_init();
-    //vmm_set_readonly(kernel_space, (uint64_t)idt, sizeof(idt));
     vmm_set_readonly(kernel_space, (uint64_t)gdt, sizeof(gdt_entry_t) * GDT_ENTRY_COUNT);
     vmm_set_readonly(kernel_space, tss_get_addr(), tss_get_size());
 
@@ -71,8 +70,7 @@ void kmain(void) {
     Canvas cv = fb_get_canvas();
     vaultfs_init(&g_vaultfs);
     //vmm_set_readonly(kernel_space, (uint64_t)&g_vaultfs.layer1, sizeof(VaultIndex));
-    //mouse_init();
-    //pic_clear_mask(12);
+    mouse_init();
     shell_run(&cv);
     while (1) {
     __asm__("hlt");
