@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include "io.h"
 #include "ring_buffer.h"
 #include "pic8089.h"
